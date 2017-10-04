@@ -229,9 +229,9 @@ export interface EventActivity extends IActivity {
 
 export type Activity = Message | Typing | EventActivity;
 
-interface ActivityGroup {
+export interface ActivitySet {
     activities: Activity[],
-    watermark: string
+    watermark?: string
 }
 
 // These types are specific to this client library, not to Direct Line 3.0
@@ -277,7 +277,8 @@ export interface IBotConnection {
     activity$: Observable<Activity>,
     end(): void,
     referenceGrammarId?: string,
-    postActivity(activity: Activity): Observable<string>
+    postActivity(activity: Activity): Observable<string>,
+    getHistory(limit: number, page: number): Observable<ActivitySet>,
 }
 
 export class DirectLine implements IBotConnection {
@@ -494,6 +495,38 @@ export class DirectLine implements IBotConnection {
         .catch(error => this.catchExpiredToken(error));
     }
 
+    getHistory(limit: number, page: number){
+        konsole.log("getHistory", {limit, page});
+        return this.checkConnection(true)
+          .flatMap(_ =>
+            Observable.ajax({
+              method: "GET",
+              url: `${this.domain}/conversations/${this
+                .conversationId}/activities?limit=${limit}&page=${page}`,
+              timeout,
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${this.token}`
+              }
+            })
+              .catch(error => {
+                if (error.status === 403) {
+                  // This is slightly ugly. We want to update this.connectionStatus$ to ExpiredToken so that subsequent
+                  // calls to checkConnection will throw an error. But when we do so, it causes this.checkConnection()
+                  // to immediately throw an error, which is caught by the catch() below and transformed into an empty
+                  // object. Then next() returns, and we emit an empty object. Which means one 403 is causing
+                  // two empty objects to be emitted. Which is harmless but, again, slightly ugly.
+                  this.expiredToken();
+                }
+                return Observable.empty<AjaxResponse>();
+              })
+              .map(
+                ajaxResponse => ajaxResponse.response as ActivitySet
+              )
+          )
+          .catch(error => Observable.empty<ActivitySet>());
+    }
+
     private postMessageWithAttachments({ attachments, ... messageWithoutAttachments }: Message) {
         let formData: FormData;
 
@@ -575,14 +608,14 @@ export class DirectLine implements IBotConnection {
                 }
                 return Observable.empty<AjaxResponse>();
             })
-//          .do(ajaxResponse => konsole.log("getActivityGroup ajaxResponse", ajaxResponse))
-            .map(ajaxResponse => ajaxResponse.response as ActivityGroup)
-            .flatMap(activityGroup => this.observableFromActivityGroup(activityGroup))
+//          .do(ajaxResponse => konsole.log("getActivitySet ajaxResponse", ajaxResponse))
+            .map(ajaxResponse => ajaxResponse.response as ActivitySet)
+            .flatMap(activityGroup => this.observableFromActivitySet(activityGroup))
         )
         .catch(error => Observable.empty<Activity>());
     }
 
-    private observableFromActivityGroup(activityGroup: ActivityGroup) {
+    private observableFromActivitySet(activityGroup: ActivitySet) {
         if (activityGroup.watermark)
             this.watermark = activityGroup.watermark;
         return Observable.from(activityGroup.activities);
@@ -591,13 +624,13 @@ export class DirectLine implements IBotConnection {
     private webSocketActivity$(): Observable<Activity> {
         return this.checkConnection()
         .flatMap(_ =>
-            this.observableWebSocket<ActivityGroup>()
+            this.observableWebSocket<ActivitySet>()
             // WebSockets can be closed by the server or the browser. In the former case we need to
             // retrieve a new streamUrl. In the latter case we could first retry with the current streamUrl,
             // but it's simpler just to always fetch a new one.
             .retryWhen(error$ => error$.mergeMap(error => this.reconnectToConversation()))
         )
-        .flatMap(activityGroup => this.observableFromActivityGroup(activityGroup))
+        .flatMap(activityGroup => this.observableFromActivitySet(activityGroup))
     }
 
     // Originally we used Observable.webSocket, but it's fairly opionated  and I ended up writing
