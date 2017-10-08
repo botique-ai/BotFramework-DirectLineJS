@@ -278,7 +278,7 @@ export interface IBotConnection {
     end(): void,
     referenceGrammarId?: string,
     postActivity(activity: Activity): Observable<string>,
-    getHistory(limit: number, page: number): Observable<ActivitySet>,
+    getHistory(until: Date, limit: Number): Observable<ActivitySet>,
 }
 
 export class DirectLine implements IBotConnection {
@@ -495,14 +495,14 @@ export class DirectLine implements IBotConnection {
         .catch(error => this.catchExpiredToken(error));
     }
 
-    getHistory(limit: number, page: number){
-        konsole.log("getHistory", {limit, page});
+    getHistory(until: Date, limit: Number){
+        konsole.log("getHistory", {limit, until});
         return this.checkConnection(true)
           .flatMap(_ =>
             Observable.ajax({
               method: "GET",
               url: `${this.domain}/conversations/${this
-                .conversationId}/activities?limit=${limit}&page=${page}`,
+                .conversationId}/activities?until=${until.toISOString()}&limit=${limit}`,
               timeout,
               headers: {
                 Accept: "application/json",
