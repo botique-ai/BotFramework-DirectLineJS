@@ -5,6 +5,7 @@ import { BehaviorSubject } from 'rxjs/BehaviorSubject';
 import { Observable } from 'rxjs/Observable';
 import { Subscriber } from 'rxjs/Subscriber';
 import { Subscription } from 'rxjs/Subscription';
+import { Subject } from 'rxjs/Subject';
 
 import 'rxjs/add/operator/catch';
 import 'rxjs/add/operator/combineLatest';
@@ -245,6 +246,11 @@ export enum ConnectionStatus {
     Ended                       // the bot ended the conversation
 }
 
+export enum GeneralEventType{
+    InitConversationNew,
+    InitConversationExisting,
+}
+
 export interface DirectLineOptions {
     secret?: string,
     token?: string,
@@ -255,6 +261,7 @@ export interface DirectLineOptions {
     pollingInterval?: number,
     streamUrl?: string
 }
+
 
 const lifetimeRefreshToken = 30 * 60 * 1000;
 const intervalRefreshToken = lifetimeRefreshToken / 2;
@@ -274,6 +281,7 @@ const konsole = {
 
 export interface IBotConnection {
     connectionStatus$: BehaviorSubject<ConnectionStatus>,
+    generalEvents$: Subject<GeneralEventType>,
     activity$: Observable<Activity>,
     end(): void,
     referenceGrammarId?: string,
@@ -283,6 +291,7 @@ export interface IBotConnection {
 
 export class DirectLine implements IBotConnection {
     public connectionStatus$ = new BehaviorSubject(ConnectionStatus.Uninitialized);
+    public generalEvents$ = new Subject<GeneralEventType>();
     public activity$: Observable<Activity>;
 
     private domain = "https://directline.botframework.com/v3/directline";
@@ -343,7 +352,7 @@ export class DirectLine implements IBotConnection {
                     this.connectionStatus$.next(ConnectionStatus.Online);
                     return Observable.of(connectionStatus);
                 } else {
-                    return this.startConversation().do(conversation => {
+                    return this.startConversation().do(({isNew, conversation}) => {
                         this.conversationId = conversation.conversationId;
                         this.token = this.secret || conversation.token;
                         this.streamUrl = conversation.streamUrl;
@@ -351,7 +360,8 @@ export class DirectLine implements IBotConnection {
                         if (!this.secret)
                             this.refreshTokenLoop();
 
-                        this.connectionStatus$.next(ConnectionStatus.Online);
+                            this.connectionStatus$.next(ConnectionStatus.Online);
+                            this.generalEvents$.next(isNew ? GeneralEventType.InitConversationNew : GeneralEventType.InitConversationExisting);
                     }, error => {
                         this.connectionStatus$.next(ConnectionStatus.FailedToConnect);
                     })
@@ -404,8 +414,8 @@ export class DirectLine implements IBotConnection {
                 "Authorization": `Bearer ${this.token}`
             }
         })
-//      .do(ajaxResponse => konsole.log("conversation ajaxResponse", ajaxResponse.response))
-        .map(ajaxResponse => ajaxResponse.response as Conversation)
+        .do(ajaxResponse => konsole.log("conversation ajaxResponse", ajaxResponse.response))
+        .map(ajaxResponse => ({conversation: ajaxResponse.response as Conversation, isNew: ajaxResponse.status === 201 }))
         .retryWhen(error$ =>
             // for now we deem 4xx and 5xx errors as unrecoverable
             // for everything else (timeouts), retry for a while
@@ -478,7 +488,7 @@ export class DirectLine implements IBotConnection {
         // Will throw an error if we are not connected
         konsole.log("postActivity", activity);
         return this.checkConnection(true)
-        .flatMap(_ =>
+        .flatMap(_ => 
             Observable.ajax({
                 method: "POST",
                 url: `${this.domain}/conversations/${this.conversationId}/activities`,
