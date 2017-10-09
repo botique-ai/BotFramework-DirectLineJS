@@ -138,6 +138,21 @@ directLine.connectionStatus$
 });
 ```
 
+### Listen to general events
+
+Subscribe to `generalEvents$` to get one-off events like when a new converation was created, etc. :  
+
+```typescript
+directLine.generalEvents$
+.subscribe(event => {
+    switch(event) {
+        case GeneralEventType.InitConversationNew:
+        case GeneralEventType.InitConversationExisting:
+    }
+});
+```
+
+
 ### Reconnect to a conversation
 
 If your app created your DirectLine object by passing a token, DirectLine will refresh that token every 15 minutes.
