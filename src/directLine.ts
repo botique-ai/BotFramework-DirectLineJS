@@ -52,12 +52,12 @@ export interface UnknownMedia{
     thumbnailUrl?: string    
 }
 
-export type CardActionTypes = "openUrl" | "imBack" | "postBack" | "playAudio" | "playVideo" | "showImage" | "downloadFile" | "signin" | "call";
+export type CardActionTypes = "openUrl" | "imBack" | "postBack" | "location" | "playAudio" | "playVideo" | "showImage" | "downloadFile" | "signin" | "call";
 
 export interface CardAction {
     type: CardActionTypes,
-    title: string,
-    value: any,
+    title?: string,
+    value?: any,
     image?: string
 }
 
@@ -182,7 +182,15 @@ export interface AnimationCard {
     }
 }
 
-export type KnownMedia = Media | HeroCard | Thumbnail | Signin | Receipt | AudioCard | VideoCard | AnimationCard | FlexCard | AdaptiveCard;
+export interface Location{
+    contentType: "location",
+    content: {
+        latitude: number,
+        longitude: number,
+    }
+}
+
+export type KnownMedia = Media | Location | HeroCard | Thumbnail | Signin | Receipt | AudioCard | VideoCard | AnimationCard | FlexCard | AdaptiveCard;
 export type Attachment = KnownMedia | UnknownMedia;
 
 export interface User {
@@ -550,7 +558,17 @@ export class DirectLine implements IBotConnection {
             formData = new FormData();
             formData.append('activity', new Blob([JSON.stringify(messageWithoutAttachments)], { type: 'application/vnd.microsoft.activity' }));
 
-            return Observable.from(attachments || [])
+            // Media attachments need to be get, others can be appended to the formData as JSONs
+            const media = attachments.reduce((acc, att) => {
+                if(!att['contentUrl']){
+                    formData.append(att.contentType, new Blob([JSON.stringify(att)], { type: 'application/json' }));
+                } else {
+                    acc.push(att);
+                }
+                return acc;
+            }, [])
+
+            return Observable.from(media || [])
             .flatMap((media: Media) =>
                 Observable.ajax({
                     method: "GET",

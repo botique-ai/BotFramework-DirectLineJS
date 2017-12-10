@@ -1,8 +1,12 @@
-# BotFramework-DirectLineJS
+# @bituqe/BotFramework-DirectLineJS
 
 Client library for the [Microsoft Bot Framework](http://www.botframework.com) *[Direct Line](https://docs.botframework.com/en-us/restapi/directline3/)* protocol.
 
 Used by [WebChat](https://github.com/Microsoft/BotFramework-WebChat) and thus (by extension) [Emulator](https://github.com/Microsoft/BotFramework-Emulator), WebChat channel, and [Azure Bot Service](https://azure.microsoft.com/en-us/services/bot-service/).
+
+## Differences from original fork
+- `Attachment` may be of content type `location`
+
 
 ## FAQ
 
