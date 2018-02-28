@@ -18,6 +18,7 @@ import 'rxjs/add/operator/mergeMap';
 import 'rxjs/add/operator/retryWhen';
 import 'rxjs/add/operator/share';
 import 'rxjs/add/operator/take';
+import 'rxjs/add/operator/exhaustMap';
 
 import 'rxjs/add/observable/dom/ajax';
 import 'rxjs/add/observable/empty';
@@ -616,7 +617,7 @@ export class DirectLine implements IBotConnection {
     private pollingGetActivity$() {
         return Observable.interval(this.pollingInterval)
         .combineLatest(this.checkConnection())
-        .flatMap(_ =>
+        .exhaustMap(_ =>
             Observable.ajax({
                 method: "GET",
                 url: `${this.domain}/conversations/${this.conversationId}/activities?watermark=${this.watermark}`,
