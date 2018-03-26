@@ -19,6 +19,8 @@ import 'rxjs/add/operator/retryWhen';
 import 'rxjs/add/operator/share';
 import 'rxjs/add/operator/take';
 import 'rxjs/add/operator/exhaustMap';
+import 'rxjs/add/operator/throttle';
+import 'rxjs/add/operator/concatAll';
 
 import 'rxjs/add/observable/dom/ajax';
 import 'rxjs/add/observable/empty';
@@ -26,6 +28,7 @@ import 'rxjs/add/observable/from';
 import 'rxjs/add/observable/interval';
 import 'rxjs/add/observable/of';
 import 'rxjs/add/observable/throw';
+import 'rxjs/add/observable/merge';
 
 // Direct Line 3.0 types
 
@@ -269,6 +272,7 @@ export interface DirectLineOptions {
     webSocket?: boolean,
     pollingInterval?: number,
     streamUrl?: string
+    activityPipeThrottleInterval?: number,
 }
 
 
@@ -315,6 +319,7 @@ export class DirectLine implements IBotConnection {
     public referenceGrammarId: string;
 
     private pollingInterval: number = 1000;
+    private activityPipeThrottleInterval: number = 250;
 
     private tokenRefreshSubscription: Subscription;
 
@@ -342,6 +347,10 @@ export class DirectLine implements IBotConnection {
         }
         if (options.pollingInterval !== undefined)
             this.pollingInterval = options.pollingInterval;
+
+        if(options.activityPipeThrottleInterval !== undefined){
+            this.activityPipeThrottleInterval = options.activityPipeThrottleInterval;
+        }
 
         this.activity$ = (this.webSocket
             ? this.webSocketActivity$()
@@ -648,7 +657,12 @@ export class DirectLine implements IBotConnection {
     private observableFromActivitySet(activityGroup: ActivitySet) {
         if (activityGroup.watermark)
             this.watermark = activityGroup.watermark;
-        return Observable.from(activityGroup.activities);
+        return Observable.merge(
+                activityGroup.activities.map((value, i) => 
+                    Observable
+                        .of(value)
+                        .delay(this.activityPipeThrottleInterval * i))
+                ).concatAll();
     }
 
     private webSocketActivity$(): Observable<Activity> {
