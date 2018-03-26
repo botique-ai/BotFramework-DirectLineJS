@@ -19,8 +19,8 @@ import 'rxjs/add/operator/retryWhen';
 import 'rxjs/add/operator/share';
 import 'rxjs/add/operator/take';
 import 'rxjs/add/operator/exhaustMap';
-import 'rxjs/add/operator/throttle';
-import 'rxjs/add/operator/concatAll';
+import 'rxjs/add/operator/concat';
+import 'rxjs/add/operator/concatMap';
 
 import 'rxjs/add/observable/dom/ajax';
 import 'rxjs/add/observable/empty';
@@ -319,7 +319,7 @@ export class DirectLine implements IBotConnection {
     public referenceGrammarId: string;
 
     private pollingInterval: number = 1000;
-    private activityPipeThrottleInterval: number = 250;
+    private activityPipeThrottleInterval: number = 500;
 
     private tokenRefreshSubscription: Subscription;
 
@@ -657,12 +657,16 @@ export class DirectLine implements IBotConnection {
     private observableFromActivitySet(activityGroup: ActivitySet) {
         if (activityGroup.watermark)
             this.watermark = activityGroup.watermark;
-        return Observable.merge(
-                activityGroup.activities.map((value, i) => 
+
+        return Observable
+                .from(activityGroup.activities)
+                .concatMap((activity => 
                     Observable
-                        .of(value)
-                        .delay(this.activityPipeThrottleInterval * i))
-                ).concatAll();
+                        .of(activity)
+                        .concat(
+                            Observable // After the first value is emitted, wait for some time before emitting the other ones
+                                .empty()
+                                .delay(this.activityPipeThrottleInterval)))) as Observable<Activity>;
     }
 
     private webSocketActivity$(): Observable<Activity> {
