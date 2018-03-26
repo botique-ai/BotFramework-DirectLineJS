@@ -78,6 +78,7 @@ export interface HeroCard {
         subtitle?: string,
         text?: string,
         images?: CardImage[],
+        imageRatio?: 'horizontal' | 'square',
         buttons?: CardAction[],
         tap?: CardAction
     }
