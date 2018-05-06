@@ -84,6 +84,20 @@ export interface HeroCard {
     }
 }
 
+export interface ListCardItem{
+    title: string,
+    text: string,
+    buttons?: Array<CardAction>,
+}
+
+export interface ListCard{
+    contentType: "application/vnd.botique.card.list"
+    content: {
+        title?: string,
+        items: Array<ListCardItem>,
+    }
+}
+
 export interface Thumbnail {
     contentType: "application/vnd.microsoft.card.thumbnail",
     content: {
@@ -195,7 +209,7 @@ export interface Location{
     }
 }
 
-export type KnownMedia = Media | Location | HeroCard | Thumbnail | Signin | Receipt | AudioCard | VideoCard | AnimationCard | FlexCard | AdaptiveCard;
+export type KnownMedia = Media | ListCard | Location | HeroCard | Thumbnail | Signin | Receipt | AudioCard | VideoCard | AnimationCard | FlexCard | AdaptiveCard;
 export type Attachment = KnownMedia | UnknownMedia;
 
 export interface User {

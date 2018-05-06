@@ -5,8 +5,11 @@ Client library for the [Microsoft Bot Framework](http://www.botframework.com) *[
 Used by [WebChat](https://github.com/Microsoft/BotFramework-WebChat) and thus (by extension) [Emulator](https://github.com/Microsoft/BotFramework-Emulator), WebChat channel, and [Azure Bot Service](https://azure.microsoft.com/en-us/services/bot-service/).
 
 ## Differences from original fork
-- `Attachment` may be of content type `location`
-
+- Activity attachments supoort the following new types:
+    - `location`
+    - `application/vnd.botique.card.list`
+    
+- `generalEvents` channel
 
 ## FAQ
 
